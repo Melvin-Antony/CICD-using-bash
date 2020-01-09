@@ -37,3 +37,11 @@ else
 fi
 rm -fv ${statusfile}
 `````````
+* Where /home/ec2-user/domain-test was my working directory
+
+NOTE: ansible.pem key is for the ansible to access SSH and github.key is required for cloning the remote private repository
+
+WORKING:
+=========
+
+The changes are made to the contents folder. Once a change is done and pushed to the remote repo using then new alias, the bash script will be trigerred which inturn checks if the prevous output was just an "up-to-date". If not the case, it will inturn trigger the ansible-playbook. The playbook will create a docker image and push to its repo with tag as that of the tag used in the git commit. Also tags the last built to the latest version of the new docker image . The playbook then waits for the docker hub to update the new changes and then runs the new docker container from the new latest image.
