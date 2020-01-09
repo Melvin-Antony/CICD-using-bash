@@ -41,6 +41,15 @@ rm -fv ${statusfile}
 
 NOTE: ansible.pem key is for the ansible to access SSH and github.key is required for cloning the remote private repository
 
+```
+$ cat password.yml 
+---
+- dockpass: your pass  
+- repo: your remote git
+- localworkdir: /home/ec2-user/domain-test/   # in my case
+- dckerusr:  your docker user
+```
+
 WORKING:
 =========
 
