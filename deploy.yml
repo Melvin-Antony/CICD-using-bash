@@ -1,0 +1,93 @@
+---
+- name : Content Pushing
+  hosts: prod
+  gather_facts: no
+  become: yes
+  vars_files:
+          - password.yml
+
+  tasks:
+
+    - name: "Deployment : Installing Packages"
+      become: true
+      yum:
+        name:
+          - git
+          - docker
+          - python-pip
+        state: present
+
+    - name: Pip installing docker
+      pip:
+              name: docker
+              state: present
+
+
+    - name: Staring Docker 
+      service:
+            name: docker
+            state: restarted
+            enabled: true
+    - name: Log into DockerHub
+      docker_login:
+        username: '{{dckerusr}}'
+        password: '{{dockpass}}'
+      delegate_to: 127.0.0.1
+
+    - name: "Deployment : Cloing Repository"
+      delegate_to: 127.0.0.1
+      git:
+        repo: "{{ repo }}"
+        dest: "{{localworkdir}}/clone-dir"
+        accept_hostkey: yes
+        key_file: "{{localworkdir}}/github.key"
+      register: repo_status
+
+    - name: get latest tag
+      shell: git describe --tags
+      args:
+       chdir: "{{localworkdir}}/content"
+      register: latest_tag
+      delegate_to: 127.0.0.1
+
+    - name: Cleaing up last latest version
+      delegate_to: 127.0.0.1
+      when: repo_status.changed == true
+      docker_image:
+        name: "{{dckerusr}}/test_img:latest"
+        state: absent
+
+    - name: "Creating a new docker image"
+      delegate_to: 127.0.0.1
+      when: repo_status.changed == true
+      docker_image:
+        name: "{{dckerusr}}/test_img:latest" 
+        path: .
+        force_tag: yes
+        push : yes
+      register: image_build
+
+    - name: tag_version
+      docker_image:
+         name: "{{dckerusr}}/test_img:latest"    
+         repository: "{{dckerusr}}/test_img:{{latest_tag.stdout}}"  
+         source: local
+         push: yes
+      when: image_build.changed == true and repo_status.changed == true
+      delegate_to: 127.0.0.1
+
+    - name: Pausing 10 seconds for the docker hub to update
+      pause: seconds=10
+
+    - name: pull docker image
+      docker_image:    
+        name: "{{dckerusr}}/test_img:latest"
+        state: present    
+        force: true
+
+    - name: Running docker over remote server
+      docker_container:
+         name: Test-webserver
+         image: "{{dckerusr}}/test_img"
+         state: started
+         ports: "80:80"
